@@ -5,14 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>座席表メーカーPro</title>
     
+    <!-- 1. 安定板ライブラリの読み込み -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 2. JSXのインポートエラーを根絶する強制Classic設定 -->
+    <script>
+        if (typeof Babel !== 'undefined') {
+            Babel.registerPreset('classic-react', {
+                presets: [
+                    [Babel.availablePresets.react, { runtime: 'classic' }]
+                ]
+            });
+        } else {
+            console.error("Critical Error: Babel Standalone is not loaded.");
+        }
+    </script>
 
     <style>
         @media print {
@@ -38,21 +49,73 @@
 <body class="bg-gray-100 text-gray-900 user-select-none">
     <div id="root"></div>
 
-    <script type="text/babel">
+    <!-- 3. カスタムプリセットを適用して安全に実行 -->
+    <script type="text/babel" data-presets="classic-react">
         const { useState, useEffect, useRef } = React;
 
-        // --- 安全な汎用アイコンコンポーネント ---
         const LucideIcon = ({ name, size = 24, className = "" }) => {
             const ref = useRef(null);
+            const [loaded, setLoaded] = useState(false);
+
             useEffect(() => {
-                if (window.lucide && window.lucide.icons && window.lucide.icons[name]) {
-                    const svg = window.lucide.icons[name].toSvg({ width: size, height: size, class: className });
-                    if (ref.current) ref.current.innerHTML = svg;
-                } else {
-                    // Lucideが未ロード、またはアイコン名が存在しない場合のフォールバック
-                    if (ref.current) ref.current.innerHTML = `<span class="${className}" style="width:${size}px; height:${size}px; display:inline-block; border:1px solid #ccc; border-radius:50%"></span>`;
+                let intervalId;
+                const updateIcon = () => {
+                    if (window.lucide && window.lucide.icons && window.lucide.icons[name]) {
+                        try {
+                            const svg = window.lucide.icons[name].toSvg({ width: size, height: size, class: className });
+                            if (ref.current) {
+                                ref.current.innerHTML = svg;
+                                setLoaded(true);
+                            }
+                            return true;
+                        } catch (e) {
+                            console.error("Lucide icon error:", e);
+                        }
+                    }
+                    return false;
+                };
+
+                if (!updateIcon()) {
+                    intervalId = setInterval(() => {
+                        if (updateIcon()) {
+                            clearInterval(intervalId);
+                        }
+                    }, 100);
                 }
+
+                return () => {
+                    if (intervalId) clearInterval(intervalId);
+                };
             }, [name, size, className]);
+
+            if (!loaded) {
+                const getFallbackEmoji = (iconName) => {
+                    switch (iconName) {
+                        case 'settings': return '⚙️';
+                        case 'printer': return '🖨️';
+                        case 'shuffle': return '🔀';
+                        case 'stop-circle': return '🛑';
+                        case 'user-plus': return '👤';
+                        case 'file-spreadsheet': return '📊';
+                        case 'lock': return '🔒';
+                        case 'help-circle': return '❓';
+                        case 'download': return '💾';
+                        case 'copy': return '📋';
+                        case 'alert-triangle': return '⚠️';
+                        case 'x': return '❌';
+                        case 'save': return '💾';
+                        case 'upload': return '📤';
+                        case 'armchair': return '🪑';
+                        default: return '●';
+                    }
+                };
+                return (
+                    <span ref={ref} className={`inline-flex items-center justify-center font-bold text-xs ${className}`} style={{ width: size, height: size }}>
+                        {getFallbackEmoji(name)}
+                    </span>
+                );
+            }
+
             return <span ref={ref} className="inline-flex items-center justify-center" />;
         };
 
@@ -270,7 +333,7 @@
                     <div className="space-y-4 text-sm text-gray-700">
                         <p>「印刷・出力」ボタンを押すと、新しいタブで座席表が開き、自動的に印刷画面が表示されます。</p>
                         <div className="bg-blue-50 p-3 rounded text-xs">
-                            ※A4横向きサイズ（余白なし・背景のグラフィックスを含める設定）での印刷を推奨します。<br/>
+                            ※A4横向きサイズ（余白なし・背景のグラ graphicsを含める設定）での印刷を推奨します。<br/>
                             ※ポップアップブロック機能が有効な場合、新しいタブが開かないことがあります。その場合はブロックを解除してください。
                         </div>
                         <button onClick={closeModal} className="mt-6 w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 transition">閉じる</button>
@@ -705,7 +768,18 @@
                      const titleStr = isTeacher ? `${config.className} 座席表 (教師側視点)` : `${config.className} 座席表 (児童側視点)`;
                      return `<div class="page-sheet"><div class="text-center mb-4"><h1 class="text-3xl font-bold border-b-2 border-black px-8 pb-2 inline-block">${titleStr}</h1></div>${content}</div>`;
                 };
-                const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${config.className} 座席表</title><script src="https://cdn.tailwindcss.com"><\/script><style>@media print{@page{size:A4 landscape;margin:10mm}html,body{width:100%;height:100%;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page-sheet{width:100%;height:100vh;padding:0;box-sizing:border-box;page-break-after:always;break-after:page;display:flex;flex-direction:column;justify-content:center;border:none!important}.page-sheet:last-child{page-break-after:auto}}body{background:white;margin:0;padding:20px;font-family:sans-serif}.page-sheet{height:90vh;width:100%;display:flex;flex-direction:column;border:1px dashed #ccc;margin-bottom:40px;padding:20px;box-sizing:border-box}</style></head><body>${genGrid(sSeats,false)}${genGrid(tSeats,true)}<script>window.onload=()=>{setTimeout(()=>window.print(),800);}<\/script></body></html>`;
+                
+                const parts = [
+                    '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>',
+                    config.className,
+                    ' 座席表</title>',
+                    '<sc' + 'ript src="https://cdn.tailwindcss.com"></sc' + 'ript>',
+                    '<style>@media print{@page{size:A4 landscape;margin:10mm}html,body{width:100%;height:100%;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page-sheet{width:100%;height:100vh;padding:0;box-sizing:border-box;page-break-after:always;break-after:page;display:flex;flex-direction:column;justify-content:center;border:none!important}.page-sheet:last-child{page-break-after:auto}}body{background:white;margin:0;padding:20px;font-family:sans-serif}.page-sheet{height:90vh;width:100%;display:flex;flex-direction:column;border:1px dashed #ccc;margin-bottom:40px;padding:20px;box-sizing:border-box}</style></head><body>',
+                    genGrid(sSeats, false),
+                    genGrid(tSeats, true),
+                    '<sc' + 'ript>window.onload=()=>{setTimeout(()=>window.print(),800);};</sc' + 'ript></body></html>'
+                ];
+                const html = parts.join('');
                 printWindow.document.open(); printWindow.document.write(html); printWindow.document.close();
             };
 
@@ -872,7 +946,7 @@
                             })}
                         </div>
                         {config.perspective === 'TEACHER' && <div className="w-full flex justify-center items-center relative mt-6 print:mt-8"><div className="absolute left-0 font-bold text-xl text-black print:hidden">{config.className}</div><div className="border-2 border-black bg-gray-100 px-10 py-2 rounded font-bold text-lg">教 卓</div></div>}
-                        <div className="text-center mt-8 text-[10px] text-gray-400 tracking-wider no-print">©2026 座席表メーカーPro ＩＣＴ支援の杜</div>
+                        <div className="text-center mt-8 text-[10px] text-gray-400 tracking-wider no-print">©2026　座席表メーカーPro　ＩＣＴ支援の杜</div>
                     </div>
                     <div className="fixed bottom-0 w-full bg-white border-t p-2 sm:p-4 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] print:hidden z-20">
                         <div className="flex items-center bg-gray-100 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 shadow-inner border border-gray-200"><span className="text-xs sm:text-sm text-gray-600 font-bold mr-2 hidden md:inline">男女配置:</span><select value={config.seatingPattern || 'CHECKERED'} onChange={(e) => setConfig({...config, seatingPattern: e.target.value})} className="text-xs sm:text-sm outline-none font-bold text-gray-800 bg-transparent cursor-pointer" disabled={isShuffling}><option value="CHECKERED">市松模様 (男女交互)</option><option value="COLUMN">列ごとに男女分離</option></select></div>
@@ -884,8 +958,11 @@
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+            const root = ReactDOM.createRoot(rootElement);
+            root.render(<App />);
+        }
     </script>
 </body>
 </html>
